@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
-const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const { initSocket } = require('./services/socketService');
@@ -43,10 +42,10 @@ initSocket(server);
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Serve views
-app.get('/', (req, res) => res.render('chat/chat'));
-app.get('/login', (req, res) => res.render('auth/login'));
-app.get('/register', (req, res) => res.render('auth/register'));
+// Serve views with titles
+app.get('/', (req, res) => res.render('chat/chat', { title: 'Chat Application' }));
+app.get('/login', (req, res) => res.render('auth/login', { title: 'Login' }));
+app.get('/register', (req, res) => res.render('auth/register', { title: 'Register' }));
 
 // Error handling
 app.use((err, req, res, next) => {
