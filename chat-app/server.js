@@ -1,43 +1,57 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
 const path = require('path');
 const mongoose = require('mongoose');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const { initSocket } = require('./services/socketService');
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
 
 // Database connection
-mongoose.connect('mongodb://localhost:27017/chatApp', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./chat.db');
+
+db.serialize(() => {
+  db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)");
+  db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  console.log('SQLite database initialized');
+});
 
 // Middleware
+app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // View engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// Initialize Socket.IO
+initSocket(server);
+
 // Routes
-app.get('/', (req, res) => {
-  res.render('chat/chat');
-});
+app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
 
-// Socket.io connection
-io.on('connection', (socket) => {
-  console.log('New user connected');
+// Serve views
+app.get('/', (req, res) => res.render('chat/chat'));
+app.get('/login', (req, res) => res.render('auth/login'));
+app.get('/register', (req, res) => res.render('auth/register'));
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected');
-  });
+// Error handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Start server
